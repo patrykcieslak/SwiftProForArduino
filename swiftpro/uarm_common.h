@@ -18,6 +18,7 @@
 #include "cpu_map/cpu_map_atmega2560.h"
 #include "serial.h"
 #include "print.h"
+#include "serial_cobs.h"
 #include "nuts_bolts.h"
 #include "eeprom.h"
 
@@ -74,6 +75,7 @@ volatile uint8_t sys_rt_exec_alarm; // Global realtime executor bitflag variable
 #include "uarm_timer.h"
 #include "uarm_peripheral.h"
 #include "uarm_drive.h"
+#include "uarm_coord_convert.h"
 
 // The Atmega2560 has 4KB EEPROM.
 // #define EEPROM_ADDR_ANGLE_REFER		 	3072U
@@ -136,75 +138,6 @@ enum uarm_device_e
 
 extern enum uarm_device_e uarm_device;
 
-#if defined(UARM_MINI)
-
-#define DEFAULT_NORMAL_HEIGHT 13.98
-#define DEFAULT_NORMAL_FRONT 33.44
-
-#define DEFAULT_LASER_HEIGHT 79.2
-#define DEFAULT_LASER_FRONT 53.6
-#define DEFAULT_3DPRINT_HEIGHT 0.0
-#define DEFAULT_3DPRINT_FRONT 0.0
-
-#define DEFAULT_PEN_HEIGHT 32.38
-#define DEFAULT_PEN_FRONT 58.96
-
-#define DEFAULT_STEP_FLAT_HEIGHT 43.16
-#define DEFAULT_STEP_FLAT_FRONT 64.52
-
-#define DEFAULT_STEP_STANDARD_HEIGHT 0.0
-#define DEFAULT_STEP_STANDARD_FRONT 0.0
-
-#define DEFAULT_ROUND_PEN_HEIGHT 65.7
-#define DEFAULT_ROUND_PEN_FRONT 44.02
-
-#define DEFAULT_CLAW_JAW_HEIGHT 60.96
-#define DEFAULT_CLAW_JAW_FRONT 64.52
-
-#define DEFAULT_STEERING_GEAR_HEIGHT 54.4
-#define DEFAULT_STEEPING_GEAR_FRONT 45.39
-
-#define DEFAULT_CLAMP_HEIGHT 31.3
-#define DEFAULT_CLAMP_FRONT 95.43
-
-#define DEFAULT_TEST_HEIGHT 0.0
-#define DEFAULT_TEST_FRONT 0.0
-
-#elif defined(UARM_2500)
-#define DEFAULT_NORMAL_HEIGHT 74.55
-#define DEFAULT_NORMAL_FRONT 56.65
-
-#define DEFAULT_LASER_HEIGHT 51.04
-#define DEFAULT_LASER_FRONT 64.4
-
-#define DEFAULT_3DPRINT_HEIGHT 74.43
-#define DEFAULT_3DPRINT_FRONT 56.5
-
-#define DEFAULT_PEN_HEIGHT 43
-#define DEFAULT_PEN_FRONT 69.5
-
-#define DEFAULT_STEP_FLAT_HEIGHT 39
-#define DEFAULT_STEP_FLAT_FRONT 76.5
-
-#define DEFAULT_STEP_STANDARD_HEIGHT 27.5
-#define DEFAULT_STEP_STANDARD_FRONT 75.5
-
-#define DEFAULT_ROUND_PEN_HEIGHT 77.2
-#define DEFAULT_ROUND_PEN_FRONT 54.5
-
-#define DEFAULT_CLAW_JAW_HEIGHT 60.96
-#define DEFAULT_CLAW_JAW_FRONT 64.52
-
-#define DEFAULT_STEERING_GEAR_HEIGHT 74.55
-#define DEFAULT_STEEPING_GEAR_FRONT 56.65
-
-#define DEFAULT_CLAMP_HEIGHT 74.55
-#define DEFAULT_CLAMP_FRONT 56.65
-
-#define DEFAULT_TEST_HEIGHT 25.49
-#define DEFAULT_TEST_FRONT 44.5
-
-#else
 #define DEFAULT_NORMAL_HEIGHT 74.55
 #define DEFAULT_NORMAL_FRONT 56.65
 
@@ -237,7 +170,6 @@ extern enum uarm_device_e uarm_device;
 
 #define DEFAULT_TEST_HEIGHT 25.49
 #define DEFAULT_TEST_FRONT 44.5
-#endif
 
 struct key_param_t
 {
@@ -251,33 +183,18 @@ struct uarm_state_t
 {
 	struct key_param_t param;
 
-	double init_arml_angle;
-	double init_armr_angle;
-	double init_base_angle;
-
-	double stop_arml_angle;
-	double stop_armr_angle;
-	double stop_base_angle;
-
-	int32_t target_step[3];
-
+	float arml_angle;
+	float armr_angle;
+	float base_angle;
 	float coord_x;
 	float coord_y;
 	float coord_z;
-
-	char motor_state_bits;
-	volatile bool gcode_delay_flag;
-	volatile bool cycle_report_flag;
-	volatile bool run_done_report_flag;
-	volatile bool run_flag;
-	volatile bool restart_flag;
 
 	bool effect_origin_check;
 	bool effect_ldie;
 	bool beep_ldie;
 	bool power_state;
 	bool motor_position_check;
-	bool reset_flag;
 	bool beep_state;
 };
 

@@ -13,7 +13,7 @@
 #define length_center_to_origin (13.2)
 #define gearbox_ratio (4.5)
 #define micro_steps (32.0)
-#define steps_per_angle (micro_steps / 1.8 * gearbox_ratio)
+#define steps_per_angle (micro_steps / 1.8 * gearbox_ratio) // Steps per deg
 #define ARMA_MAX_ANGLE (135.6)
 #define ARMA_MIN_ANGLE (-4.0)
 #define ARMB_MAX_ANGLE (119.9)

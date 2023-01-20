@@ -42,9 +42,9 @@ bool is_angle_legal(float anglea, float angleb, float anglec)
 
 void get_current_angle(float x_step, float y_step, float z_step, float *anglea, float *angleb, float *anglec)
 {
-	*anglea = (uarm.init_arml_angle + x_step / steps_per_angle);
-	*angleb = (uarm.init_armr_angle + y_step / steps_per_angle);
-	*anglec = (uarm.init_base_angle - 90 + z_step / steps_per_angle);
+	*anglea = (uarm.arml_angle + x_step / steps_per_angle);
+	*angleb = (uarm.armr_angle + y_step / steps_per_angle);
+	*anglec = (uarm.base_angle - 90 + z_step / steps_per_angle);
 }
 
 void angle_to_coord(float anglea, float angleb, float anglec, float *x, float *y, float *z)
@@ -109,9 +109,9 @@ void coord_to_angle(float x, float y, float z, float *anglea, float *angleb, flo
 
 void get_current_step(float anglea, float angleb, float anglec, float *x_step, float *y_step, float *z_step)
 {
-	*x_step = (int)((anglea - uarm.init_arml_angle) * steps_per_angle);
-	*y_step = (int)((angleb - uarm.init_armr_angle) * steps_per_angle);
-	*z_step = (int)((anglec - uarm.init_base_angle + 90) * steps_per_angle);
+	*x_step = (int)((anglea - uarm.arml_angle) * steps_per_angle);
+	*y_step = (int)((angleb - uarm.armr_angle) * steps_per_angle);
+	*z_step = (int)((anglec - uarm.base_angle + 90) * steps_per_angle);
 }
 
 void step_to_coord(float x_step, float y_step, float z_step, float *x, float *y, float *z)

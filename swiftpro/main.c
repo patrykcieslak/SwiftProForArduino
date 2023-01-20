@@ -1,64 +1,188 @@
-/*
-  main.c - An embedded CNC Controller with rs274/ngc (g-code) support
-  Part of Grbl
-
-  Copyright (c) 2011-2015 Sungeun K. Jeon
-  Copyright (c) 2009-2011 Simen Svale Skogsrud
-
-  Grbl is free software: you can redistribute it and/or modify
-  it under the terms of the GNU General Public License as published by
-  the Free Software Foundation, either version 3 of the License, or
-  (at your option) any later version.
-
-  Grbl is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
-*/
-
 #include "uarm_swift.h"
 
-void system_init(void);
+#define PCK_RX_BUFFER_SIZE  64
+#define PIf  3.141592654f
+
+bool connected;
+volatile bool report_pos;
+volatile uint8_t update_cnt; // Allows for low frequency with 8-bi timer
+SerialPacket tx_pck;
+SerialPacket rx_pck;
+uint8_t pck_rx_buffer[PCK_RX_BUFFER_SIZE];
+uint8_t pck_rx_index;
+float drive_vel_setpoint[4];
+int16_t drive_pos[4];
+
+static void update(void)
+{
+  sei();
+  ++update_cnt;
+  if(update_cnt % 5 == 0) // 10Hz
+  {
+    uarm_swift_update();
+    report_pos = true;
+    update_cnt = 0;
+  }
+}
 
 int main(void)
 {
   // Initialize system upon power-up.
   serial_init();  // Setup serial baud rate and interrupts
-  system_init();  // Configure pinout pins and pin-change interrupt
   uarm_swift_init();
   sei(); // Enable interrupts
+
+  // Start update
+  report_pos = false;
+  update_cnt = 0;
+  drive_vel_setpoint[0] = 0.f;
+  drive_vel_setpoint[1] = 0.f;
+  drive_vel_setpoint[2] = 0.f;
+  drive_vel_setpoint[3] = 0.f; 
+  drive_pos[0] = 0;
+  drive_pos[1] = 0;
+  drive_pos[2] = 0;
+  drive_pos[3] = 0;
+  time0_set(100.f, update);
+  time0_start();
+
+  // Main loop (communication)
   serial_reset_read_buffer(); // Clear serial read buffer
+  pck_rx_index = 0;
+  connected = false;
 
-  // Disable all drives 
-  drives_disarm();
-
-  //Check encoders
-  
-  while (1)
+  while(1)
   {
-    //uarm_swift_tick_run();
+    if(report_pos && connected)
+    {
+      report_pos = false;
+      tx_pck.cmd = CMD_POSITION;
+      tx_pck.dataLen = 8;
+      drive_pos[0] = (int16_t)roundf(base_drive_state.position/PIf * INT16_MAX);
+      drive_pos[1] = (int16_t)roundf(arml_drive_state.position/PIf * INT16_MAX);
+      drive_pos[2] = (int16_t)roundf(armr_drive_state.position/PIf * INT16_MAX);
+      drive_pos[3] = (int16_t)roundf(ee_drive_state.position/PIf * INT16_MAX);
+      tx_pck.data[0] = (uint8_t)(drive_pos[0] >> 8);
+      tx_pck.data[1] = (uint8_t)(drive_pos[0] & 0xFF);
+      tx_pck.data[2] = (uint8_t)(drive_pos[1] >> 8);
+      tx_pck.data[3] = (uint8_t)(drive_pos[1] & 0xFF);
+      tx_pck.data[4] = (uint8_t)(drive_pos[2] >> 8);
+      tx_pck.data[5] = (uint8_t)(drive_pos[2] & 0xFF);
+      tx_pck.data[6] = (uint8_t)(drive_pos[3] >> 8);
+      tx_pck.data[7] = (uint8_t)(drive_pos[3] & 0xFF);
+      writePacket(&tx_pck);
+    }
+  
+    // Process communication
+    uint8_t rx_count = serial_get_rx_buffer_count();
+    for(uint8_t i=0; i<rx_count; ++i)
+    {
+      pck_rx_buffer[pck_rx_index] = serial_read();
+      if(pck_rx_buffer[pck_rx_index] == 0x00)
+      {
+        if(decodePacket(pck_rx_buffer, pck_rx_index+1, &rx_pck))
+        {
+          if(!connected && rx_pck.cmd == CMD_CONNECT)
+          {
+            //beep_tone(100, 1000);
+            connected = true;
+            tx_pck.cmd = CMD_CONNECT;
+            tx_pck.dataLen = 0;
+            writePacket(&tx_pck);
+          }
+          else if(connected)
+          {
+            switch(rx_pck.cmd)
+            {
+              case CMD_CONNECT:
+              {
+                tx_pck.cmd = CMD_CONNECT;
+                tx_pck.dataLen = 0;
+              }
+                break;
 
-    uint16_t angle_reg_value[3];
-    get_angle_reg_value(angle_reg_value);
-    uart_printf("B%d L%d R%d\n", angle_reg_value[2], angle_reg_value[0], angle_reg_value[1]);
+              case CMD_ARM_DRIVES:
+              {
+                drives_arm();
+                tx_pck.cmd = CMD_ARM_DRIVES;
+                tx_pck.dataLen = 0;
+              }
+                break;
 
-    delay_ms(1000);
+              case CMD_DISARM_DRIVES:
+              {
+                drives_disarm();
+                tx_pck.cmd = CMD_DISARM_DRIVES;
+                tx_pck.dataLen = 0;
+              }
+                break;
+
+              case CMD_STOP:
+              {
+                drives_stop();
+                tx_pck.cmd = CMD_STOP;
+                tx_pck.dataLen = 0;
+              }
+                break;
+  
+              case CMD_SET_VELOCITY:
+              {
+                if(rx_pck.dataLen == 8)
+                {
+                  drive_vel_setpoint[0] = (float)( (int16_t)((uint16_t)rx_pck.data[0] << 8 | rx_pck.data[1]) )/(float)INT16_MAX * PIf;
+                  drive_vel_setpoint[1] = (float)( (int16_t)((uint16_t)rx_pck.data[2] << 8 | rx_pck.data[3]) )/(float)INT16_MAX * PIf;
+                  drive_vel_setpoint[2] = (float)( (int16_t)((uint16_t)rx_pck.data[4] << 8 | rx_pck.data[5]) )/(float)INT16_MAX * PIf;
+                  drive_vel_setpoint[3] = (float)( (int16_t)((uint16_t)rx_pck.data[6] << 8 | rx_pck.data[7]) )/(float)INT16_MAX * PIf;
+                  drives_set_velocity(drive_vel_setpoint);
+                  tx_pck.cmd = CMD_SET_VELOCITY;
+                  tx_pck.dataLen = 0;
+                }
+              }
+                break;
+
+              case CMD_PUMP_ON:
+              {
+                pump_on();
+                tx_pck.cmd = CMD_PUMP_ON;
+                tx_pck.dataLen = 0;
+              }
+                break;
+
+              case CMD_PUMP_OFF:
+              {
+                pump_off();
+                tx_pck.cmd = CMD_PUMP_OFF;
+                tx_pck.dataLen = 0;
+              }
+                break;
+
+              default:
+              {
+                tx_pck.cmd = CMD_ERROR;
+                tx_pck.dataLen = 2;
+                tx_pck.data[0] = (uint8_t)rx_pck.cmd;
+                tx_pck.data[1] = (uint8_t)ERR_UNSUPPORTED_CMD;
+              }
+                break;
+            }
+            writePacket(&tx_pck);
+          }
+        }
+        else // Error
+        {
+
+
+        }
+        pck_rx_index = 0;
+      }
+      else
+      {      
+        ++pck_rx_index;
+        if(pck_rx_index >= PCK_RX_BUFFER_SIZE)
+          pck_rx_index = 0;
+      }
+    }
   }
 
   return 0; /* Never reached */
-}
-
-void system_init(void)
-{
-  CONTROL_DDR &= ~(CONTROL_MASK); // Configure as input pins
-#ifdef DISABLE_CONTROL_PIN_PULL_UP
-  CONTROL_PORT &= ~(CONTROL_MASK); // Normal low operation. Requires external pull-down.
-#else
-  CONTROL_PORT |= CONTROL_MASK; // Enable internal pull-up resistors. Normal high operation.
-#endif
-  CONTROL_PCMSK |= CONTROL_MASK; // Enable specific pins of the Pin Change Interrupt
-  PCICR |= (1 << CONTROL_INT);   // Enable Pin Change Interrupt
 }

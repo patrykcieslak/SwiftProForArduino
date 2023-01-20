@@ -21,14 +21,8 @@ void end_effector_init(void);
 void end_effector_set_angle(float angle);
 void end_effector_deinit(void);
 float end_effector_get_angle(void);
-void end_effector_check_limit(void);
-void end_effect_adjust_angle(void);
 
 void beep_tone(unsigned long duration, double frequency);
-
-void gcode_cmd_delay(int ms);
-void cycle_report_start(int ms);
-void cycle_report_stop(void);
 
 void read_sys_param(void);
 void save_sys_param(void);
@@ -46,7 +40,7 @@ void pump_tick(void);
 
 uint8_t get_pump_status(void);
 
-void gripper_relesae(void);
+void gripper_release(void);
 void gripper_catch(void);
 uint8_t get_gripper_status(void);
 
@@ -62,7 +56,6 @@ uint8_t get_power_status(void);
 
 void check_motor_positon(void);
 void update_motor_position(void);
-void update_motor_position2(void);
 
 unsigned long millis_2(void);
 void setE2PROMData(unsigned char device, unsigned int addr, unsigned char type, float value);

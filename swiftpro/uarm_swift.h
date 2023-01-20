@@ -10,6 +10,6 @@
 #define BLE_UUID bt_mac_addr
 
 void uarm_swift_init(void);
-void uarm_swift_tick_run(void);
+void uarm_swift_update(void);
 
 #endif

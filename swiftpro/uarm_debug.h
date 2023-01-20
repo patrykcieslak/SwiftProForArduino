@@ -1,7 +1,7 @@
 #ifndef _UARM_DEBUG_H_
 #define _UARM_DEBUG_H_
 
-#define UART_DEBUG
+//#define UART_DEBUG
 
 #ifdef UART_DEBUG
 	#define DB_PRINT_STR(format, args...) 		uart_printf(format, ##args)

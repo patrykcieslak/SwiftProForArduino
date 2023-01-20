@@ -1,23 +1,38 @@
 #include "uarm_timer.h"
 
-struct time_param_t
-{
-  void (*time_callback)();
-  volatile unsigned int tcnt;
-
-  unsigned short pwm_period;
-  unsigned char clock_select_bits;
-};
-
+struct time_param_t time0 = {0};
+struct time_param_t time1 = {0};
 struct time_param_t time2 = {0};
 struct time_param_t time3 = {0};
 struct time_param_t time4 = {0};
 struct time_param_t time5 = {0};
 
-/*  resolution = 0.001   1ms interrupt
- *
- */
-void time2_set(double resolution, void (*callback)())
+void time0_set(float frequency, void (*callback)())
+{
+  time0.time_callback = callback;
+  TCCR0A = (1 << WGM01); // CTC mode
+  TCCR0B = (1 << CS02) | (1 << CS00); // 1024x prescaler
+  OCR0A = (uint8_t)roundf((float)F_CPU / (frequency * 1024.f)) - 1;
+}
+
+void time0_start(void)
+{
+  TCNT0 = 0;
+  TIMSK0 |= (1 << OCIE0A);
+}
+
+void time0_stop(void)
+{
+  TIMSK0 &= ~(1 << OCIE0A);
+}
+
+ISR(TIMER0_COMPA_vect)
+{
+  if (time0.time_callback != NULL)
+    time0.time_callback();
+}
+
+void time2_set(float resolution, void (*callback)())
 {
   float prescaler = 0.0;
   time2.time_callback = callback;
@@ -64,6 +79,8 @@ void time2_start(void)
 void time2_stop(void)
 {
   TIMSK2 &= ~(1 << TOIE2);
+  TCCR2A = 0;
+  TCCR2B = 0;
 }
 
 ISR(TIMER2_OVF_vect)
@@ -75,43 +92,7 @@ ISR(TIMER2_OVF_vect)
   }
 }
 
-/*  resolution = 0.001   1ms interrupt
- *
- */
-
-void time3_set(double resolution, void (*callback)())
-{
-  time3.time_callback = callback;
-  TCCR3A = 0;
-  TCCR3B = (1 << CS32) | (1 << CS30);
-  time3.tcnt = 0xffff + 1 - (int)((float)F_CPU * resolution / 1024);
-}
-
-void time3_start(void)
-{
-  TCNT3 = time3.tcnt;
-  TIMSK3 |= (1 << TOIE3);
-}
-
-void time3_stop(void)
-{
-  TIMSK3 &= ~(1 << TOIE3);
-}
-
-ISR(TIMER3_OVF_vect)
-{
-  TCNT3 = time3.tcnt;
-  if (time3.time_callback != NULL)
-  {
-    time3.time_callback();
-  }
-}
-
-/*  resolution = 0.001   1ms interrupt
- *
- */
-
-void time4_set(double resolution, void (*callback)())
+void time4_set(float resolution, void (*callback)())
 {
   time4.time_callback = callback;
   TCCR4A = 0;
@@ -128,6 +109,8 @@ void time4_start(void)
 void time4_stop(void)
 {
   TIMSK4 &= ~(1 << TOIE4);
+  TCCR4A = 0;
+  TCCR4B = 0;
 }
 
 ISR(TIMER4_OVF_vect)
@@ -178,35 +161,6 @@ void time4_set_period(unsigned long period_us)
   TCCR4B = _BV(WGM43) | time4.clock_select_bits;
 }
 
-void time4_set_duty(char pin, unsigned int duty)
-{
-
-  /******************* set pwm pin ***************************/
-  unsigned long dutyCycle = time4.pwm_period;
-  dutyCycle *= duty;
-  dutyCycle >>= 10;
-  switch (pin)
-  {
-  case 3:
-    DDRH |= 1 << 3;
-    TCCR4A |= _BV(COM4A1);
-    OCR4A = dutyCycle;
-    break;
-  case 4:
-    DDRH |= 1 << 4;
-    TCCR4A |= _BV(COM4B1);
-    OCR4B = dutyCycle;
-    break;
-  case 5:
-    DDRH |= 1 << 5;
-    TCCR4A |= _BV(COM4C1);
-    OCR4C = dutyCycle;
-    break;
-  }
-
-  TCCR4B = _BV(WGM43) | time4.clock_select_bits;
-}
-
 void time4_pwm_init(unsigned long period_us)
 {
   TCCR4B = _BV(WGM43); // set mode as phase and frequency correct pwm, stop the timer
@@ -214,34 +168,20 @@ void time4_pwm_init(unsigned long period_us)
   time4_set_period(period_us);
 }
 
-/*  resolution = 0.001   1ms interrupt
- *
- */
-
-void time5_set(double resolution, void (*callback)())
+ISR(TIMER1_COMPA_vect)
 {
-  time5.time_callback = callback;
-  TCCR5A = 0;
-  TCCR5B = (1 << CS52) | (1 << CS50);
-  time5.tcnt = 0xffff + 1 - (int)((float)F_CPU * resolution / 1024);
+  if (time1.time_callback != NULL)
+    time1.time_callback();
 }
 
-void time5_start(void)
+ISR(TIMER3_COMPA_vect)
 {
-  TCNT5 = time5.tcnt;
-  TIMSK5 |= (1 << TOIE5);
+  if (time3.time_callback != NULL)
+    time3.time_callback();
 }
 
-void time5_stop(void)
+ISR(TIMER5_COMPA_vect)
 {
-  TIMSK5 &= ~(1 << TOIE5);
-}
-
-ISR(TIMER5_OVF_vect)
-{
-  TCNT5 = time5.tcnt;
   if (time5.time_callback != NULL)
-  {
     time5.time_callback();
-  }
 }

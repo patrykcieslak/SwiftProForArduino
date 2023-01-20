@@ -46,7 +46,7 @@ static uint16_t read_angle_reg_value(enum angle_channel_e channel)
 	min = temp_value;
 	sum_value = temp_value;
 
-	for (int i = 1; i < 5; i++)
+	for (uint8_t i = 1; i < 5; ++i)
 	{
 		temp_value = ((uint16_t)iic_read_byte(channel, (0x36 << 1), 0x0e)) << 8 | iic_read_byte(channel, (0x36 << 1), 0x0f);
 		if (temp_value > max)
@@ -179,7 +179,7 @@ float calculate_current_angle(enum angle_channel_e channel)
 		break;
 	}
 
-	angle = get_point_b_angle(channel) - offset * 360.0 / 4096;
+	angle = get_point_b_angle(channel) - offset * 360.f / 4096.f;
 
 	//	if(angle > 360){
 	//		angle -= 360;
@@ -229,9 +229,9 @@ static void write_angle_reference_param(void)
 	eeprom_put_char(EEPROM_ANGLE_REFER_FLAG, 0xBB);
 
 	read_angle_reference_param();
-	uarm.init_arml_angle = calculate_current_angle(CHANNEL_ARML); // <! calculate init angle
-	uarm.init_armr_angle = calculate_current_angle(CHANNEL_ARMR);
-	uarm.init_base_angle = calculate_current_angle(CHANNEL_BASE);
+	uarm.arml_angle = calculate_current_angle(CHANNEL_ARML); // <! calculate init angle
+	uarm.armr_angle = calculate_current_angle(CHANNEL_ARMR);
+	uarm.base_angle = calculate_current_angle(CHANNEL_BASE);
 }
 
 void single_point_reference(void)
@@ -298,7 +298,7 @@ static void write_angle_calibra_map(void)
 	}
 }
 
-bool atuo_angle_calibra(void)
+bool auto_angle_calibra(void)
 {
 	uint16_t calibra_cnt = 0;
 	uint16_t per_angle_cnt = 0;

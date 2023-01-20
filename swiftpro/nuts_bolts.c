@@ -163,7 +163,7 @@ void delay_us(uint32_t us)
     if (us < 10)
     {
       _delay_us(1);
-      us--;
+      --us;
     }
     else if (us < 100)
     {
