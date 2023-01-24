@@ -37,6 +37,7 @@ void pump_on(void);
 void pump_off(void);
 void pump_suction(void);
 void pump_tick(void);
+pump_state_t pump_get_state(void);
 
 uint8_t get_pump_status(void);
 

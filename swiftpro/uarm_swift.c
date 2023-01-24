@@ -16,15 +16,12 @@ void uarm_swift_init(void)
 #endif
 	CONTROL_PCMSK |= CONTROL_MASK; // Enable specific pins of the Pin Change Interrupt
 	PCICR |= (1 << CONTROL_INT);   // Enable Pin Change Interrupt
-	delay_ms(10);
+	_delay_ms(10);
 
 	// Initialize peripherals
 	read_hardware_version();
 	angle_sensor_init();
 	button_init();
-
-	//beep_tone(260, 1000);
-	
 	read_sys_param();
 	drives_init();
 	pump_off();
@@ -34,12 +31,6 @@ void uarm_swift_init(void)
 	ADCSRA |= (1 << ADPS2 | 1 << ADPS1 | 1 << ADPS0 | 1 << ADEN); // <!adc set
 	DDRG &= ~(1 << 3);
 	PORTG |= (1 << 3);
-
-	// uart_printf("device name : %s\r\n", DEVICE_NAME);
-	// uart_printf("soft ver : %s\r\n", SOFTWARE_VERSION);
-	// uart_printf("api ver : %s\r\n", API_VERSION);
-	// uart_printf("work mode : %d\r\n", uarm.param.work_mode);
-	// printString("@1\n");
 }
 
 void uarm_swift_update(void)

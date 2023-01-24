@@ -8,61 +8,27 @@
 
 /*************** servo mode ****************/
 float duty_ms = 1.51;
-static void servo_init(void)
-{
-	time4_pwm_init(20000);
-	time4_set_duty(3, (duty_ms / 20.0) * 1023);
-}
-
-static void servo_set_angle(float angle)
-{
-	if (angle > 180)
-	{
-		angle = 0;
-	}
-	if (angle < 0)
-	{
-		angle = 180;
-	}
-	angle = 180 - angle;
-
-	duty_ms = (angle / 180.0) * 2.0 + 0.5;
-	time4_set_duty(3, (duty_ms / 20.0) * 1023);
-	// delay_ms(500);
-}
-
-static void servo_deinit(void)
-{
-	time4_stop();
-}
-
-static float servo_get_angle(void)
-{
-	return 180 - (duty_ms - 0.5) / 2.0 * 180;
-}
-
 void end_effector_init(void)
 {
-	servo_init();
+	time4_pwm_init(20000);
+	time4_set_duty((uint16_t)roundf((1.51f / 20.f) * 1023));
 }
 
 void end_effector_set_angle(float angle)
 {
-	if (angle > 360 || angle < 0)
-	{
-		return;
-	}
-	servo_set_angle(angle);
+	angle = 180.f - angle;
+	duty_ms = (angle / 180.f) * 2.f + 0.5f;
+	time4_set_duty((uint16_t)roundf((duty_ms / 20.f) * 1023));
 }
 
 void end_effector_deinit(void)
 {
-	servo_deinit();
+	time4_stop();
 }
 
 float end_effector_get_angle(void)
 {
-	return servo_get_angle();
+	return 180.f - (duty_ms - 0.5f) / 2.f * 180.f;
 }
 
 /*  beep driver
@@ -545,7 +511,7 @@ void pump_set_state(pump_state_t state)
 
 	pump_state = state;
 }
-pump_state_t pump_get_state()
+pump_state_t pump_get_state(void)
 {
 	return pump_state;
 }

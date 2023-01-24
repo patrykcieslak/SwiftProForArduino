@@ -6,6 +6,7 @@ struct time_param_t time2 = {0};
 struct time_param_t time3 = {0};
 struct time_param_t time4 = {0};
 struct time_param_t time5 = {0};
+volatile unsigned long time4DutyCycle;
 
 void time0_set(float frequency, void (*callback)())
 {
@@ -165,6 +166,12 @@ void time4_pwm_init(unsigned long period_us)
 {
   TCCR4B = _BV(WGM43); // set mode as phase and frequency correct pwm, stop the timer
   TCCR4A = 0;          // clear control register A
+  TCNT4 = 0;
+
+  // Pin 3 output
+  DDRH |= 1 << 3;
+  TCCR4A |= _BV(COM4A1);
+
   time4_set_period(period_us);
 }
 

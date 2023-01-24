@@ -36,14 +36,20 @@ void drives_init(void)
   // Update state variables
   update_motor_position();
   base_drive_state.position = DEG2RAD(uarm.base_angle-90.f);
-  base_drive_state.velocity = 0.f;
   base_drive_state.desired_velocity = 0.f;
+  base_drive_state.limit = 0;
+  
   arml_drive_state.position = DEG2RAD(90.f-uarm.arml_angle);
-  arml_drive_state.velocity = 0.f;
   arml_drive_state.desired_velocity = 0.f;
+  arml_drive_state.limit = 0;
+  
   armr_drive_state.position = DEG2RAD(uarm.armr_angle);
-  armr_drive_state.velocity = 0.f;
   armr_drive_state.desired_velocity = 0.f;
+  armr_drive_state.limit = 0;
+  
+  ee_drive_state.position = 0.f;
+  ee_drive_state.desired_velocity = 0.f;
+  ee_drive_state.limit = 0;
 }
 
 void drives_arm(void)
@@ -69,9 +75,95 @@ void drives_update(void)
   base_drive_state.position = DEG2RAD(uarm.base_angle-90.f);
   arml_drive_state.position = DEG2RAD(90.f-uarm.arml_angle);
   armr_drive_state.position = DEG2RAD(uarm.armr_angle);
+  ee_drive_state.position = DEG2RAD(end_effector_get_angle()-90.f);
 
-  // Apply safety action on joint limits (gradual slowdown)
+  // Apply safety action on joint limits (stop)
+  if(base_drive_state.position <= -PI2f)
+  {
+    if(base_drive_state.desired_velocity < 0.f)
+    {
+      time1_stop();
+      base_drive_state.desired_velocity = 0.f;
+    }
+    base_drive_state.limit = -1;
+  }
+  else if(base_drive_state.position >= PI2f)
+  {
+    if(base_drive_state.desired_velocity > 0.f)
+    {
+      time1_stop();
+      base_drive_state.desired_velocity = 0.f;
+    }
+    base_drive_state.limit = 1;
+  }
+  else 
+    base_drive_state.limit = 0;
 
+  if(arml_drive_state.position <= 0.03f)
+  {
+    if(arml_drive_state.desired_velocity < 0.f)
+    {
+      time3_stop();
+      arml_drive_state.desired_velocity = 0.f;
+    }
+    arml_drive_state.limit = -1;
+  }
+  else if(arml_drive_state.position >= PI2f)
+  {
+    if(arml_drive_state.desired_velocity > 0.f)
+    {
+      time3_stop();
+      arml_drive_state.desired_velocity = 0.f;
+    }
+    arml_drive_state.limit = 1;
+  }
+  else 
+    arml_drive_state.limit = 0;
+
+  if(armr_drive_state.position <= -0.35f)
+  {
+    if(armr_drive_state.desired_velocity < 0.f)
+    {
+      time5_stop();
+      armr_drive_state.desired_velocity = 0.f;
+    }
+    armr_drive_state.limit = -1;
+  }
+  else if(armr_drive_state.position >= PI2f)
+  {
+    if(armr_drive_state.desired_velocity > 0.f)
+    {
+      time5_stop();
+      armr_drive_state.desired_velocity = 0.f;
+    }
+    armr_drive_state.limit = 1;
+  }
+  else 
+    armr_drive_state.limit = 0;
+
+  if(ee_drive_state.position <= -PI2f)
+  {
+    if(ee_drive_state.desired_velocity < 0.f)
+    {
+      ee_drive_state.desired_velocity = 0.f;
+    }
+    ee_drive_state.limit = -1;
+  }
+  else if(ee_drive_state.position >= PI2f)
+  {
+    if(ee_drive_state.desired_velocity > 0.f)
+    {
+      ee_drive_state.desired_velocity = 0.f;
+    }
+    ee_drive_state.limit = 1;
+  }
+  else
+    ee_drive_state.limit = 0;
+
+  // Update end-effector
+  const float dt = 0.1f;
+  ee_drive_state.position += ee_drive_state.desired_velocity * dt;
+  end_effector_set_angle(RAD2DEG(ee_drive_state.position)+90.f);
 }
 
 static void drives_BASE_tick(void)
@@ -92,14 +184,17 @@ static void drives_ARMR_tick(void)
 void drives_set_velocity(float* vel)
 {
   // Base drive
+  if( (base_drive_state.limit == -1 && vel[0] < 0.f)
+     || (base_drive_state.limit == 1 && vel[0] > 0.f) )
+    vel[0] = 0.f;
+
   if(fabsf(vel[0]) > 0.00348f) // More than 0.2 deg
   {
     // Limit top velocity (90 deg)
     base_drive_state.desired_velocity = vel[0] > PI2f ? PI2f : (vel[0] < -PI2f ? -PI2f : vel[0]); 
-    base_drive_state.velocity = base_drive_state.desired_velocity;
-
+    
     // Set rotation direction
-    if(base_drive_state.desired_velocity > 0.f)
+    if(base_drive_state.desired_velocity < 0.f)
       BASE_DIRECTION_PORT |= BASE_DIRECTION_MASK;
     else
       BASE_DIRECTION_PORT &= ~(BASE_DIRECTION_MASK);
@@ -113,15 +208,17 @@ void drives_set_velocity(float* vel)
   {
     time1_stop();
     base_drive_state.desired_velocity = 0.f;
-    base_drive_state.velocity = 0.f;
   }
 
   // Arm left drive
+  if( (arml_drive_state.limit == -1 && vel[1] < 0.f)
+     || (arml_drive_state.limit == 1 && vel[1] > 0.f) )
+    vel[1] = 0.f;
+
   if(fabsf(vel[1]) > 0.00348f) // More than 0.2 deg
   {
     // Limit top velocity (90 deg)
     arml_drive_state.desired_velocity = vel[1] > PI2f ? PI2f : (vel[1] < -PI2f ? -PI2f : vel[1]); 
-    arml_drive_state.velocity = arml_drive_state.desired_velocity;
 
     // Set rotation direction
     if(arml_drive_state.desired_velocity > 0.f)
@@ -138,18 +235,20 @@ void drives_set_velocity(float* vel)
   {
     time3_stop();
     arml_drive_state.desired_velocity = 0.f;
-    arml_drive_state.velocity = 0.f;
   }
 
   // Arm right drive
+  if( (armr_drive_state.limit == -1 && vel[2] < 0.f)
+     || (armr_drive_state.limit == 1 && vel[2] > 0.f) )
+    vel[2] = 0.f;
+
   if(fabsf(vel[2]) > 0.00348f) // More than 0.2 deg
   {
     // Limit top velocity (90 deg)
     armr_drive_state.desired_velocity = vel[2] > PI2f ? PI2f : (vel[2] < -PI2f ? -PI2f : vel[2]); 
-    armr_drive_state.velocity = armr_drive_state.desired_velocity;
 
     // Set rotation direction
-    if(armr_drive_state.desired_velocity > 0.f)
+    if(armr_drive_state.desired_velocity < 0.f)
       ARMR_DIRECTION_PORT |= ARMR_DIRECTION_MASK;
     else
       ARMR_DIRECTION_PORT &= ~(ARMR_DIRECTION_MASK);
@@ -163,20 +262,21 @@ void drives_set_velocity(float* vel)
   {
     time5_stop();
     armr_drive_state.desired_velocity = 0.f;
-    armr_drive_state.velocity = 0.f;
   }
 
   // End-effector drive
+  if( (ee_drive_state.limit == -1 && vel[3] < 0.f)
+     || (ee_drive_state.limit == 1 && vel[3] > 0.f) )
+    vel[3] = 0.f;
+
   if(fabsf(vel[3]) > 0.00348f) // More than 0.2 deg
   {
     // Limit top velocity (90 deg)
     ee_drive_state.desired_velocity = vel[3] > PI2f ? PI2f : (vel[3] < -PI2f ? -PI2f : vel[3]); 
-    ee_drive_state.velocity = ee_drive_state.desired_velocity;
   }
   else
   {
     ee_drive_state.desired_velocity = 0.f;
-    ee_drive_state.velocity = 0.f;
   }
 }
 
@@ -187,11 +287,7 @@ void drives_stop(void)
   time5_stop();
 
   base_drive_state.desired_velocity = 0.f;
-  base_drive_state.velocity = 0.f;
   arml_drive_state.desired_velocity = 0.f;
-  arml_drive_state.velocity = 0.f;
   armr_drive_state.desired_velocity = 0.f;
-  armr_drive_state.velocity = 0.f;
   ee_drive_state.desired_velocity = 0.f;
-  ee_drive_state.velocity = 0.f;
 }

@@ -97,32 +97,14 @@ void time4_start(void);
 void time4_stop(void);
 void time4_pwm_init(unsigned long period_us);
 
-inline void time4_set_duty(char pin, unsigned int duty)
+extern volatile unsigned long time4DutyCycle;
+
+inline void time4_set_duty(uint16_t duty)
 {
-
-  /******************* set pwm pin ***************************/
-  unsigned long dutyCycle = time4.pwm_period;
-  dutyCycle *= duty;
-  dutyCycle >>= 10;
-  switch (pin)
-  {
-  case 3:
-    DDRH |= 1 << 3;
-    TCCR4A |= _BV(COM4A1);
-    OCR4A = dutyCycle;
-    break;
-  case 4:
-    DDRH |= 1 << 4;
-    TCCR4A |= _BV(COM4B1);
-    OCR4B = dutyCycle;
-    break;
-  case 5:
-    DDRH |= 1 << 5;
-    TCCR4A |= _BV(COM4C1);
-    OCR4C = dutyCycle;
-    break;
-  }
-
+  time4DutyCycle = time4.pwm_period;
+  time4DutyCycle *= duty;
+  time4DutyCycle >>= 10;
+  OCR4A = time4DutyCycle;
   TCCR4B = _BV(WGM43) | time4.clock_select_bits;
 }
 

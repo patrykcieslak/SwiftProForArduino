@@ -4,8 +4,8 @@
 struct drive_state
 {
     float position;
-    float velocity;
     float desired_velocity;
+    int8_t limit;
 };
 
 volatile struct drive_state base_drive_state;

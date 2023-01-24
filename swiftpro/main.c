@@ -1,6 +1,6 @@
 #include "uarm_swift.h"
 
-#define PCK_RX_BUFFER_SIZE  64
+#define PCK_RX_BUFFER_SIZE  128
 #define PIf  3.141592654f
 
 bool connected;
@@ -17,7 +17,7 @@ static void update(void)
 {
   sei();
   ++update_cnt;
-  if(update_cnt % 5 == 0) // 10Hz
+  if(update_cnt % 10 == 0) // 10Hz
   {
     uarm_swift_update();
     report_pos = true;
@@ -32,13 +32,29 @@ int main(void)
   uarm_swift_init();
   sei(); // Enable interrupts
 
-  // Start update
-  report_pos = false;
-  update_cnt = 0;
+  // Homing of joint 2
   drive_vel_setpoint[0] = 0.f;
   drive_vel_setpoint[1] = 0.f;
   drive_vel_setpoint[2] = 0.f;
   drive_vel_setpoint[3] = 0.f; 
+  
+  if(arml_drive_state.position < 0.035f)
+  {
+    drives_arm();
+    drive_vel_setpoint[1] = 0.05f;
+    drives_set_velocity(drive_vel_setpoint);
+    do
+    {     
+      drives_update();
+    } while (arml_drive_state.position < 0.035f);
+    drives_stop();
+    drives_disarm();
+  }
+
+  // Start update
+  bool auto_update = false;
+  report_pos = false;
+  update_cnt = 0;
   drive_pos[0] = 0;
   drive_pos[1] = 0;
   drive_pos[2] = 0;
@@ -53,11 +69,11 @@ int main(void)
 
   while(1)
   {
-    if(report_pos && connected)
+    if(report_pos && auto_update)
     {
       report_pos = false;
       tx_pck.cmd = CMD_POSITION;
-      tx_pck.dataLen = 8;
+      tx_pck.dataLen = 9;
       drive_pos[0] = (int16_t)roundf(base_drive_state.position/PIf * INT16_MAX);
       drive_pos[1] = (int16_t)roundf(arml_drive_state.position/PIf * INT16_MAX);
       drive_pos[2] = (int16_t)roundf(armr_drive_state.position/PIf * INT16_MAX);
@@ -70,6 +86,7 @@ int main(void)
       tx_pck.data[5] = (uint8_t)(drive_pos[2] & 0xFF);
       tx_pck.data[6] = (uint8_t)(drive_pos[3] >> 8);
       tx_pck.data[7] = (uint8_t)(drive_pos[3] & 0xFF);
+      tx_pck.data[8] = ((uint8_t)(pump_get_state() == PUMP_STATE_ON) << 1) | get_limit_switch_status();
       writePacket(&tx_pck);
     }
   
@@ -86,6 +103,7 @@ int main(void)
           {
             //beep_tone(100, 1000);
             connected = true;
+            auto_update = false;
             tx_pck.cmd = CMD_CONNECT;
             tx_pck.dataLen = 0;
             writePacket(&tx_pck);
@@ -97,6 +115,22 @@ int main(void)
               case CMD_CONNECT:
               {
                 tx_pck.cmd = CMD_CONNECT;
+                tx_pck.dataLen = 0;
+              }
+                break;
+
+              case CMD_START_AUTOUPDATE:
+              {
+                auto_update = true;
+                tx_pck.cmd = CMD_START_AUTOUPDATE;
+                tx_pck.dataLen = 0;
+              }
+                break;
+
+              case CMD_STOP_AUTOUPDATE:
+              {
+                auto_update = false;
+                tx_pck.cmd = CMD_STOP_AUTOUPDATE;
                 tx_pck.dataLen = 0;
               }
                 break;

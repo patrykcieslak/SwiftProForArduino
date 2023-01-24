@@ -6,11 +6,12 @@
 typedef enum __attribute__((__packed__))
 {
     CMD_CONNECT = 0x00,			// NO Data
+    CMD_START_AUTOUPDATE,       // NO Data
+    CMD_STOP_AUTOUPDATE,        // NO Data
     CMD_ARM_DRIVES,             // NO Data
     CMD_DISARM_DRIVES,          // NO Data
     CMD_STOP,                   // NO Data
-    CMD_POSITION,               // OUT Data(8): 2B->BASE 2B-> ARML 2B-> ARMR 2B-> EE
-	CMD_GET_VELOCITY,           // OUT Data(8): 2B->BASE 2B-> ARML 2B-> ARMR 2B-> EE
+    CMD_POSITION,               // OUT Data(9): 2B->BASE 2B-> ARML 2B-> ARMR 2B-> EE 1B -> Pump and limit switch status
     CMD_SET_VELOCITY,		    // IN Data(8): 2B->BASE 2B-> ARML 2B-> ARMR 2B-> EE
     CMD_PUMP_ON,                // NO Data
     CMD_PUMP_OFF,               // NO Data
